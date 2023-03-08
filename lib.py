@@ -29,8 +29,13 @@ def get_triangles(dots): #Generates vector of triangles where each triangle is v
                 triangles.append([dots[yi, xi+1], dots[yi+1, xi+1], dots[yi+1, xi]])
     return np.array(triangles)
 
-def get_triangles_map(triangles) -> dict: #Generages mapping from triangle number to triangle
+def get_triangles_map(triangles): #Generages mapping from triangle number to triangle
     return dict(enumerate(triangles))
+
+def inner_outer_dot_nums(dots, dots_map, dots_map_reverse):
+    inner_dot_nums = [dots_map_reverse[tuple(dot)] for dot in dots[1:-1, 1:-1].reshape(-1, 2)]
+    outer_dot_nums = list(set(range(dots.shape[0] * dots.shape[1])) - set(inner_dot_nums))
+    return inner_dot_nums, outer_dot_nums
 
 ###Output
 def print_title(title, padding=10): #Prints formated text
@@ -46,15 +51,14 @@ def free_symbols(f): #Extracts variables sorted by name from function (eg. f=2*x
 
 def subs(f, sub): #Passes elements along last axis into sympy function (eg. f=x1*x2 and sub=[[[1, 2],[3, 4]]] ==> [[2, 12]])
     func = lambda xs: f.subs(zip(free_symbols(f), xs))
-    return np.apply_along_axis(func1d=func, axis=-1, arr=sub) 
+    return np.apply_along_axis(func1d=func, axis=-1, arr=sub).astype(np.float64)
 
 def grad(f): #Calculates sympy gradient (eg. f=x1**2+3*x2**2 ==> np.array([2, 6]))
     return np.array([sp.diff(f, var, var) for var in free_symbols(f)])
 
 def S(triangle): #Calculates area of triangle (eg. triangle=np.array([[0, 0],[1, 0],[0, 1]]) ==> 0.5)
     matrix = np.hstack((np.ones((3, 1)), triangle))
-    area = 0.5*np.linalg.det(matrix)
-    return area
+    return .5*np.linalg.det(matrix)
 
 def get_b_c(triangle): #Calculates b_i, b_j, b_m, c_i, c_j, c_m coeficients for triangle
     t = triangle
@@ -65,42 +69,13 @@ def get_b_c(triangle): #Calculates b_i, b_j, b_m, c_i, c_j, c_m coeficients for 
         [t[m, x] - t[j, x], t[i, x] - t[m, x], t[j, x] - t[i, x]],
         ])
 
-def K(triangle, a_11, a_22): #Calculates K_e matrix
+def K(triangle, delta, a_11, a_22): #Calculates K_e matrix
     b, c = get_b_c(triangle)
-    return  (1/(4*S(triangle))) * (a_11*b[:,None]@b[None,:]+a_22*c[:,None]@c[None,:])
+    return (1/(2*delta)) * (a_11*b[:,None]@b[None,:]+a_22*c[:,None]@c[None,:])
 
 def M(d, delta): #Calculates M_e matrix (btw. np.eye(3) + 1 returns np.array([[2,1,1],[1,2,1],[1,1,2]]))
     return (d*delta/24)*(np.eye(3)+1)
 
 def Q(Me, d, fe): #Calculates Q_e matrix
     return Me/d@fe
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
