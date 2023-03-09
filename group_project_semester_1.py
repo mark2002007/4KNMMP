@@ -19,8 +19,8 @@ def main():
     x1, x2 = x = sp.symbols("x1:3") 
     a_11, a_22, d = 1, 1, 2
     u = (x1-2)**2*(x2-2)**2*x1*x2
-    #u = (x1 - 1)*(x2 - 1)*x1*x2**2
     f = -a_11*grad(u)[0] -a_22*grad(u)[1] + d*u
+    #
     print(f"[a_11, a_22, d] : {[a_11, a_22, d]}")
     print(f"f : {f}")
     u = sp.lambdify(x, u)
@@ -31,7 +31,7 @@ def main():
     for counter, triangle in enumerate(triangles):
         print(f"{counter+1}/{triangles_num}")
         dot_nums = [dots_map_reverse[tuple(dot)] for dot in triangle] #Numbers of dots of current triangle
-        #Find ABCe tensors
+        #FEM matrices
         Ke = K(triangle, delta, a_11, a_22)
         Me = M(d, delta)
         Ae = Ke + Me
@@ -51,7 +51,7 @@ def main():
             print(f"A  :\n{A}" , end="\n\n")
             print(f"Qe :\n{Qe}", end="\n\n")
             print(f"B  :\n{B}" , end="\n\n")
-    
+    #Remove rows and cols responsible for boundary dots
     _, outer_dot_nums = inner_outer_dot_nums(dots, dots_map, dots_map_reverse)
     A = np.delete(A, outer_dot_nums, 0)
     A = np.delete(A, outer_dot_nums, 1)
@@ -59,6 +59,7 @@ def main():
     #Solve Au_h=b
     u_h = np.linalg.solve(A, B).reshape((dots_per_axis-2,)*2)
     u_h = np.pad(u_h, 1)
+    #
     u_acc = subs(u, dots)
     print("u_h")
     print(u_h)

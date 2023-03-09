@@ -19,7 +19,6 @@ def main():
     x1, x2 = x = sp.symbols("x1:3") 
     a_11, a_22, d = 1, 1, 2
     u = (x1-2)**2*(x2-2)**2*x1*x2
-    #u = (x1 - 1)*(x2 - 1)*x1*x2**2
     f = -a_11*grad(u)[0] -a_22*grad(u)[1] + d*u
     beta  = np.array([1e-10, 1e-10, 1e-10, 1e-10])
     sigma = np.array([1e+10, 1e+10, 1e+10, 1e+10])
@@ -36,7 +35,7 @@ def main():
     for counter, triangle in enumerate(triangles):
         print(f"{counter+1}/{triangles_num}")
         dot_nums = [dots_map_reverse[tuple(dot)] for dot in triangle] #Numbers of dots of current triangle
-        #Find ABCe tensors
+        #FEM matrices
         Ke = K(triangle, delta, a_11, a_22)
         Me = M(d, delta)
         Ae = Ke + Me
@@ -47,11 +46,13 @@ def main():
         B[dot_nums, 0] += Qe[:, 0]
         #
         boundary_dots = extract_boundary_dots(triangle, X_RANGE, Y_RANGE)
-        if is_boundary_el(boundary_dots):
+        if is_boundary_el(boundary_dots): 
             boundary_dot_nums = [dots_map_reverse[tuple(dot)] for dot in boundary_dots]
             boundary_num = which_boundary(boundary_dots, X_RANGE, Y_RANGE)
+            #Bonus FEM matrices
             Re = R(sigma[boundary_num], beta[boundary_num], Gamma[boundary_num%2])
             Pe = P(psi[boundary_num]  , beta[boundary_num], Gamma[boundary_num%2])
+            #Add Re to A and Pe to B
             A[np.ix_(boundary_dot_nums, boundary_dot_nums)] += Re
             B[boundary_dot_nums, 0] += Pe[:, 0]
         #Some outputs

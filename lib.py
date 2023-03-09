@@ -49,7 +49,7 @@ def inner_outer_dot_nums(dots, dots_map, dots_map_reverse): #Returns numbers of 
 def extract_boundary_dots(triangle, x_range, y_range):
     return np.array([dot for dot in triangle if dot[0] in x_range or dot[1] in y_range])
 
-def is_boundary_el(boundary_dots): #TODO : test this function and also check triangles countercloswise
+def is_boundary_el(boundary_dots): 
     return 2 == len(boundary_dots)
 
 def which_boundary(boundary_dots, x_range, y_range):
