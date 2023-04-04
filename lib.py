@@ -87,23 +87,35 @@ def varphi(delta, a, b, c):
 
 ###Norms
 def integrate(u_sym, triangles_map):
-    integrals = []
-    triangles_num = len(triangles_map.items())
+    if len(triangles_map.items()) <= 18: #If amount of triangles is low - comute as sum of integrals
+        integrals = []
+        triangles_num = len(triangles_map.items())
+        x1, x2 = free_symbols(u_sym)
+        for counter, triangle in triangles_map.items():
+            x1_m, x1_M, x2_m, x2_M = min(triangle[:, 0]), max(triangle[:, 0]), min(triangle[:, 1]), max(triangle[:, 1])
+            x1_d, x2_d = x1_M - x1_m, x2_M - x2_m
+            x1_ = [x1_m, x1_m + x1_d]
+            line = x2_d/x1_d*x1
+            n_line = x1_d - line 
+            x2_ = ([line                , x2_M                ]) if counter in (0, triangles_num - 2) else \
+                  ([x2_m                , line                ]) if counter in (1, triangles_num - 1) else \
+                  ([x2_m                , x1_m + x2_m + n_line]) if counter % 2 == 0                  else \
+                  ([x1_m + x2_m + n_line, x2_M                ]) if counter % 2 == 1                  else None
+            integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_))
+        return sum(integrals)
+    else: #If amount of triangles is big compute integral on area at once
+        triangles_stack = np.vstack(triangles_map.values())
+        X_RANGE, Y_RANGE = [min(triangles_stack[:,0]), max(triangles_stack[:,0])],\
+                           [min(triangles_stack[:,1]), max(triangles_stack[:,1])]
+        x1, x2 = free_symbols(u_sym)
+        return sp.integrate(u_sym, [x1, *X_RANGE], [x2, *Y_RANGE])
+
+def L_norm(u_sym, triangles_map):
+    return integrate(u_sym**2, triangles_map)
+
+def W_norm(u_sym, triangles_map):
     x1, x2 = free_symbols(u_sym)
-    for counter, triangle in triangles_map.items():
-        x1_m, x1_M, x2_m, x2_M = min(triangle[:, 0]), max(triangle[:, 0]), min(triangle[:, 1]), max(triangle[:, 1])
-        x1_d, x2_d = x1_M - x1_m, x2_M - x2_m
-        x1_ = [x1_m, x1_m + x1_d]
-        line = x2_d/x1_d*x1
-        n_line = x1_d - line 
-        x2_ = ([line                , x2_M                ]) if counter in (0, triangles_num - 2) else \
-              ([x2_m                , line                ]) if counter in (1, triangles_num - 1) else \
-              ([x2_m                , x1_m + x2_m + n_line]) if counter % 2 == 0                  else \
-              ([x1_m + x2_m + n_line, x2_M                ]) if counter % 2 == 1                  else None
-        integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_))
-    return sum(integrals)
-
-
+    return integrate(u_sym**2 + sp.diff(u_sym, x1) + sp.diff(u_sym, x2), triangles_map)
 
 ###Helpers
 def free_symbols(f): #Extracts variables sorted by name from function (eg. f=2*x2+x1**2 ==> [x1, x2])
@@ -116,8 +128,8 @@ def subs(f, sub): #Passes elements along last axis into sympy function (eg. f=x1
         func = lambda xs: f.subs(zip(free_symbols(f), xs))
     return np.apply_along_axis(func1d=func, axis=-1, arr=sub).astype(float)
 
-def grad(f): #Calculates sympy gradient (eg. f=x1**2+3*x2**2 ==> np.array([2, 6]))
-    return np.array([sp.diff(f, var, var) for var in free_symbols(f)])
+#def grad(f): #Calculates sympy gradient (eg. f=x1**2+3*x2**2 ==> np.array([2, 6]))
+#    return np.array([sp.diff(f, var, var) for var in free_symbols(f)])
 
 ###Output
 def print_title(title, padding=10): #Prints formated text
