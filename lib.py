@@ -7,14 +7,6 @@ import sympy as sp
 import matplotlib.pyplot as plt
 import inspect
 
-###Output
-def print_title(title, padding=10): #Prints formated text
-    title_l = len(title)
-    print_width = padding*2 + title_l 
-    print('#'*print_width)
-    print(f"{'#'*padding}{title}{'#'*padding}")
-    print('#'*print_width)
-
 ###Triangulation
 def get_dots(dots_per_axis, x_range, y_range): #Calculates matrix of dots where each dot is [x, y]
     dots = [[(x, y) \
@@ -59,7 +51,8 @@ def which_boundary(boundary_dots, x_range, y_range):
     elif bd[0,1] == bd[1,1] == y_range[0]: return 0
     elif bd[0,1] == bd[1,1] == y_range[1]: return 2
     else: raise Exception("ConditionException")
-###Matrices
+
+###FEM
 def S(triangle): #Calculates area of triangle (eg. triangle=np.array([[0, 0],[1, 0],[0, 1]]) ==> 0.5)
     matrix = np.hstack((np.ones((3, 1)), triangle))
     return .5*np.linalg.det(matrix)
@@ -88,6 +81,30 @@ def R(sigma, beta, Gamma):
 
 def P(psi, beta, Gamma):
     return psi*Gamma/(beta*2)*np.ones((2, 1))
+
+def varphi(delta, a, b, c):
+    return lambda x1, x2: 1/delta*(a + b*x1 + c*x2)
+
+###Norms
+def integrate(u_sym, triangles_map):
+    integrals = []
+    triangles_num = len(triangles_map.items())
+    x1, x2 = free_symbols(u_sym)
+    for counter, triangle in triangles_map.items():
+        x1_m, x1_M, x2_m, x2_M = min(triangle[:, 0]), max(triangle[:, 0]), min(triangle[:, 1]), max(triangle[:, 1])
+        x1_d, x2_d = x1_M - x1_m, x2_M - x2_m
+        x1_ = [x1_m, x1_m + x1_d]
+        line = x2_d/x1_d*x1
+        n_line = x1_d - line 
+        x2_ = ([line                , x2_M                ]) if counter in (0, triangles_num - 2) else \
+              ([x2_m                , line                ]) if counter in (1, triangles_num - 1) else \
+              ([x2_m                , x1_m + x2_m + n_line]) if counter % 2 == 0                  else \
+              ([x1_m + x2_m + n_line, x2_M                ]) if counter % 2 == 1                  else None
+        integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_))
+    return sum(integrals)
+
+
+
 ###Helpers
 def free_symbols(f): #Extracts variables sorted by name from function (eg. f=2*x2+x1**2 ==> [x1, x2])
     return sorted(f.free_symbols, key=lambda s: s.name)
@@ -101,3 +118,11 @@ def subs(f, sub): #Passes elements along last axis into sympy function (eg. f=x1
 
 def grad(f): #Calculates sympy gradient (eg. f=x1**2+3*x2**2 ==> np.array([2, 6]))
     return np.array([sp.diff(f, var, var) for var in free_symbols(f)])
+
+###Output
+def print_title(title, padding=10): #Prints formated text
+    title_l = len(title)
+    print_width = padding*2 + title_l 
+    print('#'*print_width)
+    print(f"{'#'*padding}{title}{'#'*padding}")
+    print('#'*print_width)
