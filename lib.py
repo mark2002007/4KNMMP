@@ -52,22 +52,30 @@ def which_boundary(boundary_dots, x_range, y_range):
     elif bd[0,1] == bd[1,1] == y_range[1]: return 2
     else: raise Exception("ConditionException")
 
+def is_in_triangle(point, triangle):
+    i, j, m = triangle
+    return S(triangle) == S(np.c_[point, j, m].T) + S(np.c_[i, point, m].T) + S(np.c_[i, j, point].T)
+
+def in_which_triangle(point, triangles):
+    return np.argmax([is_in_triangle(point, t) for t in triangles])
+
 ###FEM
 def S(triangle): #Calculates area of triangle (eg. triangle=np.array([[0, 0],[1, 0],[0, 1]]) ==> 0.5)
     matrix = np.hstack((np.ones((3, 1)), triangle))
     return .5*np.linalg.det(matrix)
 
-def get_b_c(triangle): #Calculates b_i, b_j, b_m, c_i, c_j, c_m coeficients for triangle
+def get_a_b_c(triangle): #Calculates b_i, b_j, b_m, c_i, c_j, c_m coeficients for triangle
     t = triangle
     i, j, m = range(3)
     x, y = range(2)
     return np.array([
-        [t[j, y] - t[m, y], t[m, y] - t[i, y], t[i, y] - t[j, y]],
-        [t[m, x] - t[j, x], t[i, x] - t[m, x], t[j, x] - t[i, x]],
+        [t[j, x]*t[m, y] - t[m, x]*t[j, y], t[m, x]*t[i, y] - t[i, x]*t[m, y], t[i, x]*t[j, y] - t[j, x]*t[i, y]],
+        [t[j, y] - t[m, y]                , t[m, y] - t[i, y]                , t[i, y] - t[j, y]                ],
+        [t[m, x] - t[j, x]                , t[i, x] - t[m, x]                , t[j, x] - t[i, x]                ],
         ])
 
 def K(triangle, delta, a_11, a_22): #Calculates K_e matrix
-    b, c = get_b_c(triangle)
+    _, b, c = get_a_b_c(triangle)
     return (1/(2*delta)) * (a_11*b[:,None]@b[None,:]+a_22*c[:,None]@c[None,:])
 
 def M(d, delta): #Calculates M_e matrix (btw. np.eye(3) + 1 returns np.array([[2,1,1],[1,2,1],[1,1,2]]))
@@ -94,14 +102,14 @@ def integrate(u_sym, triangles_map):
         for counter, triangle in triangles_map.items():
             x1_m, x1_M, x2_m, x2_M = min(triangle[:, 0]), max(triangle[:, 0]), min(triangle[:, 1]), max(triangle[:, 1])
             x1_d, x2_d = x1_M - x1_m, x2_M - x2_m
-            x1_ = [x1_m, x1_m + x1_d]
+            x1_ = [x1_m, x1_M]
             line = x2_d/x1_d*x1
-            n_line = x1_d - line 
+            n_line = x2_d - line 
             x2_ = ([line                , x2_M                ]) if counter in (0, triangles_num - 2) else \
                   ([x2_m                , line                ]) if counter in (1, triangles_num - 1) else \
                   ([x2_m                , x1_m + x2_m + n_line]) if counter % 2 == 0                  else \
                   ([x1_m + x2_m + n_line, x2_M                ]) if counter % 2 == 1                  else None
-            integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_))
+            integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_)) 
         return sum(integrals)
     else: #If amount of triangles is big compute integral on area at once
         triangles_stack = np.vstack(triangles_map.values())
@@ -111,11 +119,11 @@ def integrate(u_sym, triangles_map):
         return sp.integrate(u_sym, [x1, *X_RANGE], [x2, *Y_RANGE])
 
 def L_norm(u_sym, triangles_map):
-    return integrate(u_sym**2, triangles_map)
+    return sp.sqrt(integrate(u_sym**2, triangles_map))
 
 def W_norm(u_sym, triangles_map):
     x1, x2 = free_symbols(u_sym)
-    return integrate(u_sym**2 + sp.diff(u_sym, x1) + sp.diff(u_sym, x2), triangles_map)
+    return sp.sqrt(integrate(u_sym**2 + sp.diff(u_sym, x1)**2 + sp.diff(u_sym, x2)**2, triangles_map))
 
 ###Helpers
 def free_symbols(f): #Extracts variables sorted by name from function (eg. f=2*x2+x1**2 ==> [x1, x2])
