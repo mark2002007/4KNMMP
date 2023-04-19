@@ -6,7 +6,7 @@ VERBOSE = False
 
 def main():
     #================================================== 
-    dots_per_axis = 4
+    dots_per_axis = 16 + 8
     dots = get_dots(dots_per_axis, X_RANGE, Y_RANGE)
     dots_num = dots.shape[0] * dots.shape[1]
     dots_map              = get_dots_map(dots)
@@ -66,48 +66,29 @@ def main():
             print(f"Qe :\n{Qe}", end="\n\n")
             print(f"B  :\n{B}" , end="\n\n")
     #Solve Au_h=b
-    u_h_ = []
     q = np.linalg.solve(A, B).reshape([-1, 1]) 
     
-    def u_h(X):
-        X1, X2 = X
-        print(f"in_t_0 : in_tr")
-        print(f"X : {X}")
-        input(f"triangle id : {in_which_triangle([X1, X2], triangles)}")
-        triangle = triangles[in_which_triangle([X1, X2], triangles)]
-        dot_nums = [dots_map_reverse[tuple(dot)] for dot in triangle] 
-        N_e = (get_a_b_c(triangle).T @ np.array([1, X1, X2])[:, None]).flatten()
-        q_e = q[dot_nums, :]
-        return (N_e@q_e).item()
-    
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    ax.plot_surface(dots[...,0], dots[...,1], subs(u, dots))
-    ax.plot_surface(dots[...,0], dots[...,1], q.reshape((dots_per_axis,)*2))
-    ax.plot_surface(dots[...,0], dots[...,1], np.apply_along_axis(u_h, -1, dots))
-    plt.show()
-    input()
-#    u_h = lambda X1, X2:  
-#    for _, triangle in enumerate(triangles):
-#        dot_nums = [dots_map_reverse[tuple(dot)] for dot in triangle] #Numbers of dots of current triangle
-#        q_e = q[dot_nums, :]
-#        N_e = (get_a_b_c(triangle).T@np.array([1, x1, x2])[:, None]).flatten()
-#        u_h_.append((N_e@q_e).item())
-#    u_h_ = np.array(u_h_)
-#    print(*u_h_, sep="\n")
-#    u_h = sp.lambdify([x1, x2], u_h_[in_which_triangle([x1, x2], triangles)])
+    def u_h(X1, X2, triangle = None):
+        if triangle is None:
+            triangle = triangles[in_which_triangle([X1, X2], triangles_map)]
 
-    input()
-    u_acc = subs(u, dots).reshape([-1, 1])
-    print("u_h")
-    print(u_h)
-    print("u")
-    print(u_acc)
-    print(f"norm : {np.linalg.norm(u_h - u_acc)}")
-    #
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(projection='3d'))
-    ax.plot_surface(dots[...,0], dots[...,1], u_acc, alpha=.6)
-    ax.plot_surface(dots[...,0], dots[...,1], u_h, alpha=.6)
-    plt.show()
+        a_b_c = get_a_b_c(triangle)
+        N_e = 1/delta * (a_b_c @ np.array([1, X1, X2])[:, None]).flatten()
+        dot_nums = [dots_map_reverse[tuple(dot)] for dot in triangle]
+        q_e = q[dot_nums, :]
+        
+        u_h_val = (N_e@q_e).item()
+        u_h_x1 = (a_b_c.T[1]/delta @ q_e).item()
+        u_h_x2 = (a_b_c.T[2]/delta @ q_e).item()
+        return u_h_val, u_h_x1, u_h_x2 
+    
+#    input(f"I(u_h) : {integrate(lambda *x: u_h(*x)[0], triangles_map)}")
+#    input(f"I(u)   : {integrate(u, triangles_map)}")
+#    input(f"I(u - u_h) : {integrate(lambda X1, X2, triangle: u(X1, X2) - u_h(X1, X2, triangle)[0], triangles_map)}")
+    input(f"L_norm(u - u_h) : {L_diff_norm(u_sym, u_h, triangles_map)}")
+    input(f"W_norm(u - u_h) : {W_diff_norm(u_sym, u_h, triangles_map)}")
+    input(f"L_norm(u - u_h) / L_norm(u) : {L_diff_norm(u_sym, u_h, triangles_map)/L_norm(u_sym, triangles_map)}")
+    input(f"W_norm(u - u_h) / W_norm(u) : {W_diff_norm(u_sym, u_h, triangles_map)/W_norm(u_sym, triangles_map)}")
 
 if __name__ == "__main__":
     main()

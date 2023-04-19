@@ -1,7 +1,7 @@
 import sys
 import itertools as it
 import numpy as np
-np.set_printoptions(linewidth=np.inf)
+np.set_printoptions(linewidth=np.inf, suppress=True)
 #np.set_printoptions(threshold=sys.maxsize)
 import sympy as sp
 import matplotlib.pyplot as plt
@@ -54,28 +54,37 @@ def which_boundary(boundary_dots, x_range, y_range):
 
 def is_in_triangle(point, triangle):
     i, j, m = triangle
-    return S(triangle) == S(np.c_[point, j, m].T) + S(np.c_[i, point, m].T) + S(np.c_[i, j, point].T)
+#    input(f"is_in_triangle ({point}, \n{triangle}\n)")
+#    input(f"S(\n{triangle}\n) : {S(triangle)}")
+#    input(f"S(\n{np.c_[point, j    , m    ].T}\n) : {S(np.c_[point, j    , m    ].T)}")
+#    input(f"S(\n{np.c_[i    , point, m    ].T}\n) : {S(np.c_[i    , point, m    ].T)}")
+#    input(f"S(\n{np.c_[i    , j    , point].T}\n) : {S(np.c_[i    , j    , point].T)}")
+#    input(f"S(t) == S(i) + S(j) + S(m) : {S(triangle) == S(np.c_[point, j, m].T) + S(np.c_[i, point, m].T) + S(np.c_[i, j, point].T)}")
+    return round(S(triangle), 8) == round(S(np.c_[point, j, m].T) + S(np.c_[i, point, m].T) + S(np.c_[i, j, point].T), 8)
 
-def in_which_triangle(point, triangles):
-    return np.argmax([is_in_triangle(point, t) for t in triangles])
+def in_which_triangle(point, triangles_map):
+#    print(f"in_which_triangle({point}, triangles)")
+    for i, t in triangles_map.items():
+        if is_in_triangle(point, t):
+            return i
 
 ###FEM
 def S(triangle): #Calculates area of triangle (eg. triangle=np.array([[0, 0],[1, 0],[0, 1]]) ==> 0.5)
     matrix = np.hstack((np.ones((3, 1)), triangle))
-    return .5*np.linalg.det(matrix)
+    return np.abs(.5*np.linalg.det(matrix))
 
-def get_a_b_c(triangle): #Calculates b_i, b_j, b_m, c_i, c_j, c_m coeficients for triangle
+def get_a_b_c(triangle): #Calculates a_i, a_j, a_m, b_i, b_j, b_m, c_i, c_j, c_m coeficients for triangle
     t = triangle
     i, j, m = range(3)
     x, y = range(2)
     return np.array([
-        [t[j, x]*t[m, y] - t[m, x]*t[j, y], t[m, x]*t[i, y] - t[i, x]*t[m, y], t[i, x]*t[j, y] - t[j, x]*t[i, y]],
-        [t[j, y] - t[m, y]                , t[m, y] - t[i, y]                , t[i, y] - t[j, y]                ],
-        [t[m, x] - t[j, x]                , t[i, x] - t[m, x]                , t[j, x] - t[i, x]                ],
+        [t[j, x]*t[m, y] - t[m, x]*t[j, y], t[j, y] - t[m, y], t[m, x] - t[j, x]],
+        [t[m, x]*t[i, y] - t[i, x]*t[m, y], t[m, y] - t[i, y], t[i, x] - t[m, x]],
+        [t[i, x]*t[j, y] - t[j, x]*t[i, y], t[i, y] - t[j, y], t[j, x] - t[i, x]],
         ])
 
 def K(triangle, delta, a_11, a_22): #Calculates K_e matrix
-    _, b, c = get_a_b_c(triangle)
+    _, b, c = get_a_b_c(triangle).T
     return (1/(2*delta)) * (a_11*b[:,None]@b[None,:]+a_22*c[:,None]@c[None,:])
 
 def M(d, delta): #Calculates M_e matrix (btw. np.eye(3) + 1 returns np.array([[2,1,1],[1,2,1],[1,1,2]]))
@@ -94,11 +103,21 @@ def varphi(delta, a, b, c):
     return lambda x1, x2: 1/delta*(a + b*x1 + c*x2)
 
 ###Norms
-def integrate(u_sym, triangles_map):
-    if len(triangles_map.items()) <= 18: #If amount of triangles is low - comute as sum of integrals
+def integrate(u, triangles_map):
+    if inspect.isfunction(u):
+        integrals = []
+        for counter, triangle in triangles_map.items():
+            centroid = 1/3 * np.sum(triangle, axis=0)
+            if "triangle" in u.__code__.co_varnames:
+                integrals.append(u(*centroid, triangle) * S(triangle)) 
+            else:
+                integrals.append(u(*centroid) * S(triangle))
+        return sum(integrals)
+
+    elif len(triangles_map.items()) <= 18: #If amount of triangles is low - comute as sum of integrals
         integrals = []
         triangles_num = len(triangles_map.items())
-        x1, x2 = free_symbols(u_sym)
+        x1, x2 = free_symbols(u)
         for counter, triangle in triangles_map.items():
             x1_m, x1_M, x2_m, x2_M = min(triangle[:, 0]), max(triangle[:, 0]), min(triangle[:, 1]), max(triangle[:, 1])
             x1_d, x2_d = x1_M - x1_m, x2_M - x2_m
@@ -109,14 +128,15 @@ def integrate(u_sym, triangles_map):
                   ([x2_m                , line                ]) if counter in (1, triangles_num - 1) else \
                   ([x2_m                , x1_m + x2_m + n_line]) if counter % 2 == 0                  else \
                   ([x1_m + x2_m + n_line, x2_M                ]) if counter % 2 == 1                  else None
-            integrals.append(sp.integrate(u_sym, [x2] + x2_, [x1] + x1_)) 
+            integrals.append(sp.integrate(u, [x2] + x2_, [x1] + x1_)) 
         return sum(integrals)
+    
     else: #If amount of triangles is big compute integral on area at once
-        triangles_stack = np.vstack(triangles_map.values())
+        triangles_stack = np.vstack(list(triangles_map.values()))
         X_RANGE, Y_RANGE = [min(triangles_stack[:,0]), max(triangles_stack[:,0])],\
                            [min(triangles_stack[:,1]), max(triangles_stack[:,1])]
-        x1, x2 = free_symbols(u_sym)
-        return sp.integrate(u_sym, [x1, *X_RANGE], [x2, *Y_RANGE])
+        x1, x2 = free_symbols(u)
+        return sp.integrate(u, [x1, *X_RANGE], [x2, *Y_RANGE])
 
 def L_norm(u_sym, triangles_map):
     return sp.sqrt(integrate(u_sym**2, triangles_map))
@@ -124,6 +144,19 @@ def L_norm(u_sym, triangles_map):
 def W_norm(u_sym, triangles_map):
     x1, x2 = free_symbols(u_sym)
     return sp.sqrt(integrate(u_sym**2 + sp.diff(u_sym, x1)**2 + sp.diff(u_sym, x2)**2, triangles_map))
+
+def L_diff_norm(u_sym, u_h, triangles_map):
+    x = free_symbols(u_sym)
+    u_sym_minus_u_h = lambda X1, X2, triangle: (sp.lambdify(x, u_sym)(X1, X2) - u_h(X1, X2, triangle)[0])**2
+    return sp.sqrt(integrate(u_sym_minus_u_h, triangles_map))
+
+def W_diff_norm(u_sym, u_h, triangles_map):
+    x = free_symbols(u_sym)
+    u_sym_minus_u_h = lambda X1, X2, triangle: \
+            (sp.lambdify(x, u_sym)(X1, X2)                - u_h(X1, X2, triangle)[0])**2 + \
+            (sp.lambdify(x, sp.diff(u_sym, x[0]))(X1, X2) - u_h(X1, X2, triangle)[1])**2 + \
+            (sp.lambdify(x, sp.diff(u_sym, x[1]))(X1, X2) - u_h(X1, X2, triangle)[2])**2 
+    return sp.sqrt(integrate(u_sym_minus_u_h, triangles_map))
 
 ###Helpers
 def free_symbols(f): #Extracts variables sorted by name from function (eg. f=2*x2+x1**2 ==> [x1, x2])
