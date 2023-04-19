@@ -139,11 +139,12 @@ def integrate(u, triangles_map):
         return sp.integrate(u, [x1, *X_RANGE], [x2, *Y_RANGE])
 
 def L_norm(u_sym, triangles_map):
-    return sp.sqrt(integrate(u_sym**2, triangles_map))
+    x = free_symbols(u_sym)
+    return sp.sqrt(integrate(sp.lambdify(x, u_sym**2), triangles_map))
 
 def W_norm(u_sym, triangles_map):
-    x1, x2 = free_symbols(u_sym)
-    return sp.sqrt(integrate(u_sym**2 + sp.diff(u_sym, x1)**2 + sp.diff(u_sym, x2)**2, triangles_map))
+    x = free_symbols(u_sym)
+    return sp.sqrt(integrate(sp.lambdify(x, u_sym**2 + sp.diff(u_sym, x[0])**2 + sp.diff(u_sym, x[1])**2), triangles_map))
 
 def L_diff_norm(u_sym, u_h, triangles_map):
     x = free_symbols(u_sym)

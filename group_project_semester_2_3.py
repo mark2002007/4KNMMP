@@ -6,7 +6,7 @@ VERBOSE = False
 
 def main():
     #================================================== 
-    dots_per_axis = 16 + 8
+    dots_per_axis = 64
     dots = get_dots(dots_per_axis, X_RANGE, Y_RANGE)
     dots_num = dots.shape[0] * dots.shape[1]
     dots_map              = get_dots_map(dots)
@@ -85,10 +85,12 @@ def main():
 #    input(f"I(u_h) : {integrate(lambda *x: u_h(*x)[0], triangles_map)}")
 #    input(f"I(u)   : {integrate(u, triangles_map)}")
 #    input(f"I(u - u_h) : {integrate(lambda X1, X2, triangle: u(X1, X2) - u_h(X1, X2, triangle)[0], triangles_map)}")
-    input(f"L_norm(u - u_h) : {L_diff_norm(u_sym, u_h, triangles_map)}")
-    input(f"W_norm(u - u_h) : {W_diff_norm(u_sym, u_h, triangles_map)}")
-    input(f"L_norm(u - u_h) / L_norm(u) : {L_diff_norm(u_sym, u_h, triangles_map)/L_norm(u_sym, triangles_map)}")
-    input(f"W_norm(u - u_h) / W_norm(u) : {W_diff_norm(u_sym, u_h, triangles_map)/W_norm(u_sym, triangles_map)}")
+    L_diff_norm_val = L_diff_norm(u_sym, u_h, triangles_map)
+    W_diff_norm_val = W_diff_norm(u_sym, u_h, triangles_map)
+    input(f"L_norm(u - u_h) : {L_diff_norm_val}")
+    input(f"W_norm(u - u_h) : {W_diff_norm_val}")
+    input(f"L_norm(u - u_h) / L_norm(u) : {L_diff_norm_val/L_norm(u_sym, triangles_map)}")
+    input(f"W_norm(u - u_h) / W_norm(u) : {W_diff_norm_val/W_norm(u_sym, triangles_map)}")
 
 if __name__ == "__main__":
     main()
